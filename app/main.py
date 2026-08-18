@@ -1,16 +1,16 @@
 """Dashboard de Proyectos IA -- FastAPI app.
 
 Sirve un dashboard HTML (HTMX + Tailwind + Chart.js) que se alimenta de una
-cache SQLite, la cual un loop en background mantiene sincronizada con el
-Excel de SharePoint via Microsoft Graph. Los usuarios siguen editando el
-Excel normalmente en SharePoint; el dashboard solo refleja esos cambios.
+cache SQLite. Los datos se actualizan cuando alguien sube el .xlsx
+actualizado desde la propia UI (boton "Subir Excel actualizado") -- no hay
+integracion externa, cero configuracion de credenciales. Todos los usuarios
+ven los cambios en su siguiente refresco automatico (cada 30s via HTMX).
 """
-import asyncio
 import contextlib
 import json
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,7 +18,7 @@ from markupsafe import Markup
 
 from app import db
 from app.config import settings
-from app.sync import sync_once
+from app.excel_import import import_workbook, ExcelImportError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dashboard.main")
@@ -34,22 +34,10 @@ def _tojson_safe(value) -> Markup:
 templates.env.filters["tojson_safe"] = _tojson_safe
 
 
-async def _background_sync_loop() -> None:
-    while True:
-        await asyncio.sleep(settings.poll_interval_seconds)
-        result = sync_once()
-        logger.info("Background sync: %s", result)
-
-
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
-    logger.info("Sync inicial: %s", sync_once(force=True))
-    task = asyncio.create_task(_background_sync_loop())
     yield
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
 
 
 app = FastAPI(title="Dashboard de Proyectos IA", lifespan=lifespan)
@@ -67,7 +55,7 @@ def _status_bucket(overall: str) -> str:
     return "unknown"
 
 
-def _dashboard_context() -> dict:
+def _dashboard_context(upload_message: str | None = None, upload_ok: bool = True) -> dict:
     projects = [dict(r) for r in db.fetch_all("projects")]
     roadmap = [dict(r) for r in db.fetch_all("roadmap")]
     risks = [dict(r) for r in db.fetch_all("risk")]
@@ -88,7 +76,9 @@ def _dashboard_context() -> dict:
         "risks": risks,
         "summary": summary,
         "last_synced": db.get_sync_meta("last_synced_at"),
-        "graph_auth_configured": settings.graph_auth_configured,
+        "last_upload_filename": db.get_sync_meta("last_upload_filename"),
+        "upload_message": upload_message,
+        "upload_ok": upload_ok,
     }
 
 
@@ -98,11 +88,32 @@ async def dashboard(request: Request):
 
 
 @app.get("/partials/content", response_class=HTMLResponse)
-async def dashboard_content(request: Request, refresh: bool = False):
-    """Partial que HTMX vuelve a pedir cada N segundos para refrescar la vista.
-
-    Con ?refresh=1 fuerza un sync inmediato (botón 'Actualizar ahora').
-    """
-    if refresh:
-        sync_once(force=True)
+async def dashboard_content(request: Request):
+    """Partial que HTMX vuelve a pedir cada 30s para refrescar la vista con datos frescos."""
     return templates.TemplateResponse(request, "partials/content.html", _dashboard_context())
+
+
+@app.post("/upload", response_class=HTMLResponse)
+async def upload_excel(request: Request, file: UploadFile = File(...)):
+    """Recibe el .xlsx subido desde la UI, lo parsea y actualiza la cache SQLite."""
+    if not file.filename.lower().endswith(".xlsx"):
+        ctx = _dashboard_context(upload_message="El archivo debe ser .xlsx", upload_ok=False)
+        return templates.TemplateResponse(request, "partials/content.html", ctx)
+
+    raw = await file.read()
+    if len(raw) > settings.max_upload_bytes:
+        ctx = _dashboard_context(
+            upload_message=f"El archivo pesa mas de {settings.max_upload_bytes // (1024*1024)}MB",
+            upload_ok=False,
+        )
+        return templates.TemplateResponse(request, "partials/content.html", ctx)
+
+    try:
+        result = import_workbook(raw, file.filename)
+        msg = f"Archivo '{file.filename}' importado: {result['counts']}"
+        ctx = _dashboard_context(upload_message=msg, upload_ok=True)
+    except ExcelImportError as exc:
+        logger.warning("Import fallido: %s", exc)
+        ctx = _dashboard_context(upload_message=str(exc), upload_ok=False)
+
+    return templates.TemplateResponse(request, "partials/content.html", ctx)

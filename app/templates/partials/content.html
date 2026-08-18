@@ -1,23 +1,26 @@
-{% if not graph_auth_configured %}
-<div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-800" role="alert">
-    <strong>Configuracion pendiente:</strong> falta la autenticacion con Microsoft Graph
-    (variables <code>AZURE_TENANT_ID</code> / <code>AZURE_CLIENT_ID</code> / <code>AZURE_CLIENT_SECRET</code> en <code>.env</code>).
-    Revisa el <code>README.md</code> para el proceso de app registration. Mientras tanto no hay datos que mostrar.
+{% if upload_message %}
+<div class="mb-4 rounded-lg border p-4 {% if upload_ok %}border-green-300 bg-green-50 text-green-800{% else %}border-red-300 bg-red-50 text-red-800{% endif %}" role="alert">
+    {{ upload_message }}
 </div>
 {% endif %}
 
-<div class="flex items-center justify-between mb-4">
-    <p class="text-xs text-slate-500">
-        Ultima sincronizacion: <span class="font-medium">{{ last_synced or "aun no sincronizado" }}</span>
-        (se refresca solo cada 30s)
-    </p>
-    <button
-        hx-get="/partials/content?refresh=true"
-        hx-target="#dashboard-content"
-        hx-swap="innerHTML"
-        class="text-xs font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">
-        Actualizar ahora
-    </button>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-lg shadow p-4">
+    <div>
+        <p class="text-xs text-slate-500">
+            Ultima actualizacion: <span class="font-medium">{{ last_synced or "aun no se ha subido ningun archivo" }}</span>
+            {% if last_upload_filename %}(archivo: <span class="font-medium">{{ last_upload_filename }}</span>){% endif %}
+        </p>
+        <p class="text-xs text-slate-400">La vista se refresca sola cada 30s -- si alguien mas sube un Excel nuevo, lo veras aqui sin recargar.</p>
+    </div>
+    <form hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#dashboard-content" hx-swap="innerHTML"
+          class="flex items-center gap-2">
+        <label for="excel-file" class="sr-only">Archivo Excel a subir</label>
+        <input id="excel-file" type="file" name="file" accept=".xlsx" required
+               class="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+        <button type="submit" class="text-xs font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+            Subir Excel actualizado
+        </button>
+    </form>
 </div>
 
 <!-- Tarjetas resumen -->
@@ -78,7 +81,7 @@
                 <td class="px-4 py-2">{{ p.platform }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin datos todavia</td></tr>
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin datos todavia -- sube el Excel arriba</td></tr>
             {% endfor %}
         </tbody>
     </table>
