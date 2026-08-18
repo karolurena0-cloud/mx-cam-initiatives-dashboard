@@ -98,7 +98,8 @@ def get_sync_meta(key: str) -> str | None:
 
 
 def mark_synced_now() -> None:
-    set_sync_meta("last_synced_at", datetime.now(timezone.utc).isoformat())
+    # Sin microsegundos ni offset de timezone -- mas limpio para mostrar en la UI.
+    set_sync_meta("last_synced_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
 
 
 def fetch_all(table: str) -> list[sqlite3.Row]:

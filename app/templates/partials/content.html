@@ -7,8 +7,7 @@
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-lg shadow p-4">
     <div>
         <p class="text-xs text-slate-500">
-            Ultima actualizacion: <span class="font-medium">{{ last_synced or "aun no se ha subido ningun archivo" }}</span>
-            {% if last_upload_filename %}(archivo: <span class="font-medium">{{ last_upload_filename }}</span>){% endif %}
+            Ultima actualizacion: <span class="font-medium">{{ last_synced or "aun no se ha subido ningun archivo" }}{% if last_upload_filename %} ({{ last_upload_filename }}){% endif %}</span>
         </p>
         {% if source_file_modified %}
         <p class="text-xs text-slate-500">
