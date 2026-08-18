@@ -9,10 +9,7 @@
         </div>
     </header>
 
-    <div id="dashboard-content"
-         hx-get="/partials/content"
-         hx-trigger="load, every 30s"
-         hx-swap="innerHTML">
+    <div id="dashboard-content">
         {% include "partials/content.html" %}
     </div>
 </div>

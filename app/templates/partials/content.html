@@ -12,13 +12,12 @@
         {% if source_file_modified %}
         <p class="text-xs text-slate-500">
             Fecha de modificacion segun metadata del propio Excel: <span class="font-medium">{{ source_file_modified }}</span>
-            -- comparala contra SharePoint para confirmar que subiste la version mas reciente.
         </p>
         {% endif %}
         <p class="text-xs text-slate-400">La vista se refresca sola cada 30s -- si alguien mas sube un Excel nuevo, lo veras aqui sin recargar.</p>
     </div>
     <form hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#dashboard-content" hx-swap="innerHTML"
-          class="flex items-center gap-2">
+          hx-include="#filters-form" class="flex items-center gap-2">
         <label for="excel-file" class="sr-only">Archivo Excel a subir</label>
         <input id="excel-file" type="file" name="file" accept=".xlsx" required
                class="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
@@ -27,6 +26,35 @@
         </button>
     </form>
 </div>
+
+<!-- Filtros -->
+<form id="filters-form"
+      hx-get="/partials/content" hx-target="#dashboard-content" hx-swap="innerHTML"
+      hx-trigger="change, every 30s"
+      class="flex flex-wrap items-end gap-4 mb-6 bg-white rounded-lg shadow p-4">
+    <div>
+        <label for="status-filter" class="block text-xs font-medium text-slate-500 mb-1">Filtrar por estado (color)</label>
+        <select id="status-filter" name="status" class="text-sm border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="all" {% if status_filter == "all" %}selected{% endif %}>Todos</option>
+            <option value="green" {% if status_filter == "green" %}selected{% endif %}>Verde</option>
+            <option value="amber" {% if status_filter == "amber" %}selected{% endif %}>Amarillo</option>
+            <option value="red" {% if status_filter == "red" %}selected{% endif %}>Rojo</option>
+            <option value="unknown" {% if status_filter == "unknown" %}selected{% endif %}>Desconocido</option>
+        </select>
+    </div>
+    <div>
+        <label for="engineer-filter" class="block text-xs font-medium text-slate-500 mb-1">Filtrar por ingeniero</label>
+        <select id="engineer-filter" name="engineer" class="text-sm border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="all" {% if engineer_filter == "all" %}selected{% endif %}>Todos</option>
+            {% for eng in engineers %}
+            <option value="{{ eng }}" {% if engineer_filter == eng %}selected{% endif %}>{{ eng }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if status_filter != "all" or engineer_filter != "all" %}
+    <a href="/" class="text-xs font-medium text-blue-600 hover:underline pb-2">Limpiar filtros</a>
+    {% endif %}
+</form>
 
 <!-- Tarjetas resumen -->
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -50,6 +78,24 @@
         <p class="text-xs text-slate-500">Riesgos abiertos</p>
         <p class="text-2xl font-bold">{{ summary.open_risks }}</p>
     </div>
+</div>
+
+<!-- Graficas de analisis -->
+<div class="grid md:grid-cols-3 gap-6 mb-6">
+    <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Distribucion por estado</h2>
+        <div class="h-64">
+            <canvas id="statusChart" role="img" aria-label="Dona de proyectos por color de estado"></canvas>
+        </div>
+        <script id="status-data" type="application/json">{{ status_chart | tojson_safe }}</script>
+    </section>
+    <section class="bg-white rounded-lg shadow p-4 md:col-span-2">
+        <h2 class="text-lg font-semibold mb-2">Proyectos por ingeniero</h2>
+        <div class="h-64">
+            <canvas id="engineerChart" role="img" aria-label="Barras de cantidad de proyectos por ingeniero"></canvas>
+        </div>
+        <script id="engineer-data" type="application/json">{{ engineer_chart | tojson_safe }}</script>
+    </section>
 </div>
 
 <!-- Tabla de proyectos -->
@@ -86,7 +132,7 @@
                 <td class="px-4 py-2">{{ p.platform }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin datos todavia -- sube el Excel arriba</td></tr>
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -97,7 +143,7 @@
     <section class="bg-white rounded-lg shadow p-4">
         <h2 class="text-lg font-semibold mb-2">Roadmap (% avance)</h2>
         <div class="h-80">
-            <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap"></canvas>
+            <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap, coloreadas por nivel de riesgo"></canvas>
         </div>
         <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
     </section>
@@ -123,7 +169,7 @@
                     <td class="px-4 py-2">{{ r.resolution_date }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin riesgos registrados</td></tr>
+                <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin riesgos que coincidan con los filtros</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -131,31 +177,90 @@
 </div>
 
 <script>
-    (function renderRoadmapChart() {
-        const dataEl = document.getElementById("roadmap-data");
-        const canvas = document.getElementById("roadmapChart");
-        if (!dataEl || !canvas) return;
-        const roadmap = JSON.parse(dataEl.textContent || "[]");
+    (function renderCharts() {
+        const COLORS = {
+            green: "rgb(34, 197, 94)",
+            amber: "rgb(245, 158, 11)",
+            red: "rgb(239, 68, 68)",
+            blue: "rgb(37, 99, 235)",
+            slate: "rgb(148, 163, 184)",
+        };
 
-        if (window._roadmapChartInstance) {
-            window._roadmapChartInstance.destroy();
+        function readJson(id) {
+            const el = document.getElementById(id);
+            if (!el) return null;
+            try { return JSON.parse(el.textContent || "null"); } catch (e) { return null; }
         }
-        window._roadmapChartInstance = new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels: roadmap.map(r => `${r.app} - ${r.task}`),
-                datasets: [{
-                    label: "% avance",
-                    data: roadmap.map(r => Number(r.pct) || 0),
-                    backgroundColor: "rgb(37, 99, 235)"
-                }]
-            },
-            options: {
-                indexAxis: "y",
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { x: { min: 0, max: 100 } }
-            }
-        });
+
+        function destroyIfExists(key) {
+            if (window[key]) { window[key].destroy(); window[key] = null; }
+        }
+
+        // --- Dona de estados ---
+        const statusData = readJson("status-data");
+        const statusCanvas = document.getElementById("statusChart");
+        if (statusData && statusCanvas) {
+            destroyIfExists("_statusChartInstance");
+            window._statusChartInstance = new Chart(statusCanvas, {
+                type: "doughnut",
+                data: {
+                    labels: statusData.labels,
+                    datasets: [{
+                        data: statusData.data,
+                        backgroundColor: [COLORS.green, COLORS.amber, COLORS.red, COLORS.slate],
+                    }],
+                },
+                options: { responsive: true, maintainAspectRatio: false },
+            });
+        }
+
+        // --- Barras por ingeniero ---
+        const engineerData = readJson("engineer-data");
+        const engineerCanvas = document.getElementById("engineerChart");
+        if (engineerData && engineerCanvas) {
+            destroyIfExists("_engineerChartInstance");
+            window._engineerChartInstance = new Chart(engineerCanvas, {
+                type: "bar",
+                data: {
+                    labels: engineerData.labels,
+                    datasets: [{
+                        label: "Proyectos",
+                        data: engineerData.data,
+                        backgroundColor: COLORS.blue,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                },
+            });
+        }
+
+        // --- Roadmap, coloreado por % de avance ---
+        const roadmap = readJson("roadmap-data") || [];
+        const roadmapCanvas = document.getElementById("roadmapChart");
+        if (roadmapCanvas) {
+            destroyIfExists("_roadmapChartInstance");
+            const pctOf = r => Number(r.pct) || 0;
+            const colorFor = pct => pct >= 70 ? COLORS.green : pct >= 30 ? COLORS.amber : COLORS.red;
+            window._roadmapChartInstance = new Chart(roadmapCanvas, {
+                type: "bar",
+                data: {
+                    labels: roadmap.map(r => `${r.app} - ${r.task}`),
+                    datasets: [{
+                        label: "% avance",
+                        data: roadmap.map(pctOf),
+                        backgroundColor: roadmap.map(r => colorFor(pctOf(r))),
+                    }],
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { min: 0, max: 100 } },
+                },
+            });
+        }
     })();
 </script>
