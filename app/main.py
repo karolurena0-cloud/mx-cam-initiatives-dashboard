@@ -113,14 +113,13 @@ async def upload_excel(request: Request, file: UploadFile = File(...)):
         result = import_workbook(raw, file.filename)
         if result["is_duplicate"]:
             msg = (
-                f"Aviso: este archivo es identico (byte por byte) al ultimo que subiste. "
-                f"Si esperabas ver cambios, probablemente descargaste una copia vieja de "
-                f"SharePoint en vez de la mas reciente. Conteos: {result['counts']}"
+                "Aviso: este archivo es identico (byte por byte) al ultimo que subiste. "
+                "Si esperabas ver cambios, probablemente descargaste una copia vieja de "
+                "SharePoint en vez de la mas reciente."
             )
             ctx = _dashboard_context(upload_message=msg, upload_ok=False)
         else:
-            msg = f"Archivo '{file.filename}' importado: {result['counts']}"
-            ctx = _dashboard_context(upload_message=msg, upload_ok=True)
+            ctx = _dashboard_context(upload_message="El dashboard se actualizo con exito.", upload_ok=True)
     except ExcelImportError as exc:
         logger.warning("Import fallido: %s", exc)
         ctx = _dashboard_context(upload_message=str(exc), upload_ok=False)
