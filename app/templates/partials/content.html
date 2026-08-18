@@ -1,0 +1,161 @@
+{% if upload_message %}
+<div class="mb-4 rounded-lg border p-4 {% if upload_ok %}border-green-300 bg-green-50 text-green-800{% else %}border-red-300 bg-red-50 text-red-800{% endif %}" role="alert">
+    {{ upload_message }}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white rounded-lg shadow p-4">
+    <div>
+        <p class="text-xs text-slate-500">
+            Ultima actualizacion: <span class="font-medium">{{ last_synced or "aun no se ha subido ningun archivo" }}{% if last_upload_filename %} ({{ last_upload_filename }}){% endif %}</span>
+        </p>
+        {% if source_file_modified %}
+        <p class="text-xs text-slate-500">
+            Fecha de modificacion segun metadata del propio Excel: <span class="font-medium">{{ source_file_modified }}</span>
+            -- comparala contra SharePoint para confirmar que subiste la version mas reciente.
+        </p>
+        {% endif %}
+        <p class="text-xs text-slate-400">La vista se refresca sola cada 30s -- si alguien mas sube un Excel nuevo, lo veras aqui sin recargar.</p>
+    </div>
+    <form hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#dashboard-content" hx-swap="innerHTML"
+          class="flex items-center gap-2">
+        <label for="excel-file" class="sr-only">Archivo Excel a subir</label>
+        <input id="excel-file" type="file" name="file" accept=".xlsx" required
+               class="text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+        <button type="submit" class="text-xs font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+            Subir Excel actualizado
+        </button>
+    </form>
+</div>
+
+<!-- Tarjetas resumen -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-slate-500">Proyectos totales</p>
+        <p class="text-2xl font-bold">{{ summary.total_projects }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+        <p class="text-xs text-slate-500">En verde</p>
+        <p class="text-2xl font-bold text-green-600">{{ summary.green }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+        <p class="text-xs text-slate-500">En amarillo</p>
+        <p class="text-2xl font-bold text-amber-600">{{ summary.amber }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+        <p class="text-xs text-slate-500">En rojo</p>
+        <p class="text-2xl font-bold text-red-600">{{ summary.red }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-slate-500">Riesgos abiertos</p>
+        <p class="text-2xl font-bold">{{ summary.open_risks }}</p>
+    </div>
+</div>
+
+<!-- Tabla de proyectos -->
+<section class="bg-white rounded-lg shadow mb-6 overflow-x-auto">
+    <h2 class="text-lg font-semibold px-4 pt-4">Proyectos</h2>
+    <table class="min-w-full text-sm">
+        <thead class="text-left text-slate-500 border-b">
+            <tr>
+                <th scope="col" class="px-4 py-2">App</th>
+                <th scope="col" class="px-4 py-2">Estado</th>
+                <th scope="col" class="px-4 py-2">Producto</th>
+                <th scope="col" class="px-4 py-2">Ingenieria</th>
+                <th scope="col" class="px-4 py-2">Resumen</th>
+                <th scope="col" class="px-4 py-2">Plataforma</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for p in projects %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ p.app }}</td>
+                <td class="px-4 py-2">
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full
+                            {% if p.status_color == 'green' %}bg-green-500
+                            {% elif p.status_color == 'amber' %}bg-amber-500
+                            {% elif p.status_color == 'red' %}bg-red-500
+                            {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
+                        {{ p.overall or "N/D" }}
+                    </span>
+                </td>
+                <td class="px-4 py-2">{{ p.product }}</td>
+                <td class="px-4 py-2">{{ p.engineering }}</td>
+                <td class="px-4 py-2 max-w-sm truncate" title="{{ p.project_overview }}">{{ p.project_overview }}</td>
+                <td class="px-4 py-2">{{ p.platform }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin datos todavia -- sube el Excel arriba</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<div class="grid md:grid-cols-2 gap-6">
+    <!-- Roadmap -->
+    <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Roadmap (% avance)</h2>
+        <div class="h-80">
+            <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap"></canvas>
+        </div>
+        <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
+    </section>
+
+    <!-- Riesgos -->
+    <section class="bg-white rounded-lg shadow overflow-x-auto">
+        <h2 class="text-lg font-semibold px-4 pt-4">Riesgos</h2>
+        <table class="min-w-full text-sm">
+            <thead class="text-left text-slate-500 border-b">
+                <tr>
+                    <th scope="col" class="px-4 py-2">App</th>
+                    <th scope="col" class="px-4 py-2">Riesgo</th>
+                    <th scope="col" class="px-4 py-2">Mitigacion</th>
+                    <th scope="col" class="px-4 py-2">Fecha resolucion</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for r in risks %}
+                <tr>
+                    <td class="px-4 py-2 font-medium">{{ r.app }}</td>
+                    <td class="px-4 py-2">{{ r.risk }}</td>
+                    <td class="px-4 py-2">{{ r.mitigation }}</td>
+                    <td class="px-4 py-2">{{ r.resolution_date }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin riesgos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    (function renderRoadmapChart() {
+        const dataEl = document.getElementById("roadmap-data");
+        const canvas = document.getElementById("roadmapChart");
+        if (!dataEl || !canvas) return;
+        const roadmap = JSON.parse(dataEl.textContent || "[]");
+
+        if (window._roadmapChartInstance) {
+            window._roadmapChartInstance.destroy();
+        }
+        window._roadmapChartInstance = new Chart(canvas, {
+            type: "bar",
+            data: {
+                labels: roadmap.map(r => `${r.app} - ${r.task}`),
+                datasets: [{
+                    label: "% avance",
+                    data: roadmap.map(r => Number(r.pct) || 0),
+                    backgroundColor: "rgb(37, 99, 235)"
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 100 } }
+            }
+        });
+    })();
+</script>
