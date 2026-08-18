@@ -5,6 +5,7 @@ por algo mucho mas simple: cualquier persona con el archivo actualizado lo
 sube desde el dashboard, se parsea aqui y todos los demas usuarios ven los
 cambios en su siguiente refresco automatico (ver hx-trigger en el template).
 """
+import hashlib
 import io
 import logging
 
@@ -96,7 +97,16 @@ def _rows_from_values(values: list[list], table: str) -> list[dict]:
 
 
 def import_workbook(file_bytes: bytes, filename: str) -> dict:
-    """Parsea el .xlsx subido y reemplaza el contenido de las 3 tablas en SQLite."""
+    """Parsea el .xlsx subido y reemplaza el contenido de las 3 tablas en SQLite.
+
+    Tambien detecta si el archivo subido es byte-por-byte identico al ultimo
+    que se importo -- comun cuando alguien vuelve a subir una copia local
+    vieja creyendo que ya tiene los cambios mas recientes de SharePoint.
+    """
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+    previous_hash = db.get_sync_meta("last_upload_hash")
+    is_duplicate = file_hash == previous_hash
+
     try:
         wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
     except Exception as exc:
@@ -109,6 +119,10 @@ def import_workbook(file_bytes: bytes, filename: str) -> dict:
             f"Hojas encontradas: {', '.join(wb.sheetnames)}"
         )
 
+    # Metadata interna del propio archivo (la pone Excel/SharePoint al guardar).
+    # Util para que el usuario compare visualmente si subio la version correcta.
+    file_modified = wb.properties.modified or wb.properties.created
+
     imported_counts = {}
     for table, sheet_name in SHEETS.items():
         ws = wb[sheet_name]
@@ -118,6 +132,14 @@ def import_workbook(file_bytes: bytes, filename: str) -> dict:
         imported_counts[table] = len(rows)
 
     db.set_sync_meta("last_upload_filename", filename)
+    db.set_sync_meta("last_upload_hash", file_hash)
+    db.set_sync_meta("source_file_modified", str(file_modified) if file_modified else "")
     db.mark_synced_now()
-    logger.info("Import OK desde '%s': %s", filename, imported_counts)
-    return {"status": "imported", "filename": filename, "counts": imported_counts}
+    logger.info("Import OK desde '%s': %s (duplicado=%s)", filename, imported_counts, is_duplicate)
+    return {
+        "status": "imported",
+        "filename": filename,
+        "counts": imported_counts,
+        "is_duplicate": is_duplicate,
+        "file_modified": str(file_modified) if file_modified else None,
+    }

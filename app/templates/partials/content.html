@@ -10,6 +10,12 @@
             Ultima actualizacion: <span class="font-medium">{{ last_synced or "aun no se ha subido ningun archivo" }}</span>
             {% if last_upload_filename %}(archivo: <span class="font-medium">{{ last_upload_filename }}</span>){% endif %}
         </p>
+        {% if source_file_modified %}
+        <p class="text-xs text-slate-500">
+            Fecha de modificacion segun metadata del propio Excel: <span class="font-medium">{{ source_file_modified }}</span>
+            -- comparala contra SharePoint para confirmar que subiste la version mas reciente.
+        </p>
+        {% endif %}
         <p class="text-xs text-slate-400">La vista se refresca sola cada 30s -- si alguien mas sube un Excel nuevo, lo veras aqui sin recargar.</p>
     </div>
     <form hx-post="/upload" hx-encoding="multipart/form-data" hx-target="#dashboard-content" hx-swap="innerHTML"

@@ -77,6 +77,7 @@ def _dashboard_context(upload_message: str | None = None, upload_ok: bool = True
         "summary": summary,
         "last_synced": db.get_sync_meta("last_synced_at"),
         "last_upload_filename": db.get_sync_meta("last_upload_filename"),
+        "source_file_modified": db.get_sync_meta("source_file_modified"),
         "upload_message": upload_message,
         "upload_ok": upload_ok,
     }
@@ -110,8 +111,16 @@ async def upload_excel(request: Request, file: UploadFile = File(...)):
 
     try:
         result = import_workbook(raw, file.filename)
-        msg = f"Archivo '{file.filename}' importado: {result['counts']}"
-        ctx = _dashboard_context(upload_message=msg, upload_ok=True)
+        if result["is_duplicate"]:
+            msg = (
+                f"Aviso: este archivo es identico (byte por byte) al ultimo que subiste. "
+                f"Si esperabas ver cambios, probablemente descargaste una copia vieja de "
+                f"SharePoint en vez de la mas reciente. Conteos: {result['counts']}"
+            )
+            ctx = _dashboard_context(upload_message=msg, upload_ok=False)
+        else:
+            msg = f"Archivo '{file.filename}' importado: {result['counts']}"
+            ctx = _dashboard_context(upload_message=msg, upload_ok=True)
     except ExcelImportError as exc:
         logger.warning("Import fallido: %s", exc)
         ctx = _dashboard_context(upload_message=str(exc), upload_ok=False)
