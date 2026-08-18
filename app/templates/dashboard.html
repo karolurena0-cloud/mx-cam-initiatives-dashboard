@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Dashboard de Proyectos IA</h1>
+            <p class="text-sm text-slate-500">Alimentado en vivo desde el Excel de SharePoint (Portfolio Technology)</p>
+        </div>
+    </header>
+
+    <div id="dashboard-content"
+         hx-get="/partials/content"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+        {% include "partials/content.html" %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% if not graph_auth_configured %}
+<div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-800" role="alert">
+    <strong>Configuracion pendiente:</strong> falta la autenticacion con Microsoft Graph
+    (variables <code>AZURE_TENANT_ID</code> / <code>AZURE_CLIENT_ID</code> / <code>AZURE_CLIENT_SECRET</code> en <code>.env</code>).
+    Revisa el <code>README.md</code> para el proceso de app registration. Mientras tanto no hay datos que mostrar.
+</div>
+{% endif %}
+
+<div class="flex items-center justify-between mb-4">
+    <p class="text-xs text-slate-500">
+        Ultima sincronizacion: <span class="font-medium">{{ last_synced or "aun no sincronizado" }}</span>
+        (se refresca solo cada 30s)
+    </p>
+    <button
+        hx-get="/partials/content?refresh=true"
+        hx-target="#dashboard-content"
+        hx-swap="innerHTML"
+        class="text-xs font-medium px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+        Actualizar ahora
+    </button>
+</div>
+
+<!-- Tarjetas resumen -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-slate-500">Proyectos totales</p>
+        <p class="text-2xl font-bold">{{ summary.total_projects }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+        <p class="text-xs text-slate-500">En verde</p>
+        <p class="text-2xl font-bold text-green-600">{{ summary.green }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-amber-500">
+        <p class="text-xs text-slate-500">En amarillo</p>
+        <p class="text-2xl font-bold text-amber-600">{{ summary.amber }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+        <p class="text-xs text-slate-500">En rojo</p>
+        <p class="text-2xl font-bold text-red-600">{{ summary.red }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-xs text-slate-500">Riesgos abiertos</p>
+        <p class="text-2xl font-bold">{{ summary.open_risks }}</p>
+    </div>
+</div>
+
+<!-- Tabla de proyectos -->
+<section class="bg-white rounded-lg shadow mb-6 overflow-x-auto">
+    <h2 class="text-lg font-semibold px-4 pt-4">Proyectos</h2>
+    <table class="min-w-full text-sm">
+        <thead class="text-left text-slate-500 border-b">
+            <tr>
+                <th scope="col" class="px-4 py-2">App</th>
+                <th scope="col" class="px-4 py-2">Estado</th>
+                <th scope="col" class="px-4 py-2">Producto</th>
+                <th scope="col" class="px-4 py-2">Ingenieria</th>
+                <th scope="col" class="px-4 py-2">Resumen</th>
+                <th scope="col" class="px-4 py-2">Plataforma</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for p in projects %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ p.app }}</td>
+                <td class="px-4 py-2">
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full
+                            {% if p.status_color == 'green' %}bg-green-500
+                            {% elif p.status_color == 'amber' %}bg-amber-500
+                            {% elif p.status_color == 'red' %}bg-red-500
+                            {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
+                        {{ p.overall or "N/D" }}
+                    </span>
+                </td>
+                <td class="px-4 py-2">{{ p.product }}</td>
+                <td class="px-4 py-2">{{ p.engineering }}</td>
+                <td class="px-4 py-2 max-w-sm truncate" title="{{ p.project_overview }}">{{ p.project_overview }}</td>
+                <td class="px-4 py-2">{{ p.platform }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin datos todavia</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+
+<div class="grid md:grid-cols-2 gap-6">
+    <!-- Roadmap -->
+    <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Roadmap (% avance)</h2>
+        <div class="h-80">
+            <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap"></canvas>
+        </div>
+        <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
+    </section>
+
+    <!-- Riesgos -->
+    <section class="bg-white rounded-lg shadow overflow-x-auto">
+        <h2 class="text-lg font-semibold px-4 pt-4">Riesgos</h2>
+        <table class="min-w-full text-sm">
+            <thead class="text-left text-slate-500 border-b">
+                <tr>
+                    <th scope="col" class="px-4 py-2">App</th>
+                    <th scope="col" class="px-4 py-2">Riesgo</th>
+                    <th scope="col" class="px-4 py-2">Mitigacion</th>
+                    <th scope="col" class="px-4 py-2">Fecha resolucion</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for r in risks %}
+                <tr>
+                    <td class="px-4 py-2 font-medium">{{ r.app }}</td>
+                    <td class="px-4 py-2">{{ r.risk }}</td>
+                    <td class="px-4 py-2">{{ r.mitigation }}</td>
+                    <td class="px-4 py-2">{{ r.resolution_date }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-4 py-6 text-center text-slate-400">Sin riesgos registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    (function renderRoadmapChart() {
+        const dataEl = document.getElementById("roadmap-data");
+        const canvas = document.getElementById("roadmapChart");
+        if (!dataEl || !canvas) return;
+        const roadmap = JSON.parse(dataEl.textContent || "[]");
+
+        if (window._roadmapChartInstance) {
+            window._roadmapChartInstance.destroy();
+        }
+        window._roadmapChartInstance = new Chart(canvas, {
+            type: "bar",
+            data: {
+                labels: roadmap.map(r => `${r.app} - ${r.task}`),
+                datasets: [{
+                    label: "% avance",
+                    data: roadmap.map(r => Number(r.pct) || 0),
+                    backgroundColor: "rgb(37, 99, 235)"
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { min: 0, max: 100 } }
+            }
+        });
+    })();
+</script>
