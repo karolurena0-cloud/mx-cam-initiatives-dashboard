@@ -107,53 +107,6 @@
     </section>
 </div>
 
-<!-- Tabla de proyectos -->
-<section class="bg-white rounded-lg shadow mb-6 overflow-x-auto">
-    <h2 class="text-lg font-semibold px-4 pt-4">Proyectos</h2>
-    <table class="min-w-full text-sm">
-        <thead class="text-left text-slate-500 border-b">
-            <tr>
-                <th scope="col" class="px-4 py-2">App</th>
-                <th scope="col" class="px-4 py-2">Estado</th>
-                <th scope="col" class="px-4 py-2">Producto</th>
-                <th scope="col" class="px-4 py-2">Ingenieria</th>
-                <th scope="col" class="px-4 py-2">Plataforma</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y">
-            {% for p in projects %}
-            <tr class="transition-opacity
-                {% if app_filter != "all" and app_filter == p.app %}bg-blue-50 border-l-4 border-blue-600
-                {% elif app_filter != "all" %}opacity-40 grayscale hover:opacity-100 hover:grayscale-0
-                {% endif %}">
-                <td class="px-4 py-2 font-medium">
-                    <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
-                       hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
-                       hx-target="#dashboard-content" hx-swap="innerHTML"
-                       class="text-blue-700 hover:underline">{{ p.app }}</a>
-                </td>
-                <td class="px-4 py-2">
-                    <span class="inline-flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-full
-                            {% if p.status_color == 'green' %}bg-green-500
-                            {% elif p.status_color == 'amber' %}bg-amber-500
-                            {% elif p.status_color == 'red' %}bg-red-500
-                            {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
-                        {{ p.overall or "N/D" }}
-                    </span>
-                </td>
-                <td class="px-4 py-2">{{ p.product }}</td>
-                <td class="px-4 py-2">{{ p.engineering }}</td>
-                <td class="px-4 py-2">{{ p.platform }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</section>
-<p class="text-xs text-slate-400 -mt-4 mb-6 px-1">Haz clic en el nombre de una app para ver su estado y dependencias en detalle abajo.</p>
-
 <div class="grid md:grid-cols-2 gap-6 mb-6">
     {% if selected_project %}
     <!-- Estado y Dependencias de la app seleccionada -->
@@ -218,6 +171,53 @@
         <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap, coloreadas por nivel de riesgo"></canvas>
     </div>
     <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
+</section>
+
+<!-- Detalle / reporte general de todos los proyectos -->
+<section class="bg-white rounded-lg shadow mt-6 overflow-x-auto">
+    <h2 class="text-lg font-semibold px-4 pt-4">Detalle: todos los proyectos</h2>
+    <p class="text-xs text-slate-400 px-4 pb-2">Reporte general del portafolio completo -- haz clic en el nombre de una app para filtrar el resto del dashboard por ella.</p>
+    <table class="min-w-full text-sm">
+        <thead class="text-left text-slate-500 border-b">
+            <tr>
+                <th scope="col" class="px-4 py-2">App</th>
+                <th scope="col" class="px-4 py-2">Estado</th>
+                <th scope="col" class="px-4 py-2">Producto</th>
+                <th scope="col" class="px-4 py-2">Ingenieria</th>
+                <th scope="col" class="px-4 py-2">Plataforma</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y">
+            {% for p in projects %}
+            <tr class="transition-opacity
+                {% if app_filter != "all" and app_filter == p.app %}bg-blue-50 border-l-4 border-blue-600
+                {% elif app_filter != "all" %}opacity-40 grayscale hover:opacity-100 hover:grayscale-0
+                {% endif %}">
+                <td class="px-4 py-2 font-medium">
+                    <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
+                       hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
+                       hx-target="#dashboard-content" hx-swap="innerHTML"
+                       class="text-blue-700 hover:underline">{{ p.app }}</a>
+                </td>
+                <td class="px-4 py-2">
+                    <span class="inline-flex items-center gap-1.5">
+                        <span class="w-2.5 h-2.5 rounded-full
+                            {% if p.status_color == 'green' %}bg-green-500
+                            {% elif p.status_color == 'amber' %}bg-amber-500
+                            {% elif p.status_color == 'red' %}bg-red-500
+                            {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
+                        {{ p.overall or "N/D" }}
+                    </span>
+                </td>
+                <td class="px-4 py-2">{{ p.product }}</td>
+                <td class="px-4 py-2">{{ p.engineering }}</td>
+                <td class="px-4 py-2">{{ p.platform }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </section>
 
 <script>
