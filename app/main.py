@@ -72,19 +72,24 @@ def _dashboard_context(
     engineers = sorted({p["engineering"] for p in all_projects if p.get("engineering")})
     apps = sorted({p["app"] for p in all_projects if p.get("app")})
 
-    # 'app_filter' es una SELECCION (para resaltar), no un filtro que oculte
-    # filas -- asi el usuario siempre puede hacer clic en otra app sin tener
-    # que limpiar nada primero. status/engineer si ocultan filas de verdad.
+    # 'projects' alimenta SOLO la tabla de Proyectos: nunca se oculta nada
+    # por app_filter (solo status/engineer ocultan filas de verdad) para que
+    # el usuario siempre pueda cambiar de seleccion con un clic. La app
+    # seleccionada se resalta en el template, el resto se atenua en gris.
     projects = all_projects
     if status_filter != "all":
         projects = [p for p in projects if p["status_color"] == status_filter]
     if engineer_filter != "all":
         projects = [p for p in projects if p.get("engineering") == engineer_filter]
 
-    # Roadmap y riesgos tambien respetan status/engineer, pero muestran
-    # TODAS las apps que queden dentro de ese alcance (la app seleccionada
-    # se resalta en el template/JS, no se oculta el resto).
-    visible_apps = {p["app"] for p in projects}
+    # 'scoped_projects' alimenta TODO LO DEMAS (tarjetas resumen, graficas,
+    # roadmap, riesgos) -- aqui si se aplica un drill-down real: si hay una
+    # app seleccionada, todo eso se filtra a solo esa app.
+    scoped_projects = projects
+    if app_filter != "all":
+        scoped_projects = [p for p in scoped_projects if p.get("app") == app_filter]
+
+    visible_apps = {p["app"] for p in scoped_projects}
     roadmap = [dict(r) for r in db.fetch_all("roadmap") if dict(r).get("app") in visible_apps]
     risks = [dict(r) for r in db.fetch_all("risk") if dict(r).get("app") in visible_apps]
 
@@ -96,25 +101,26 @@ def _dashboard_context(
         selected_project = next((p for p in all_projects if p["app"] == app_filter), None)
 
     summary = {
-        "total_projects": len(projects),
-        "green": sum(1 for p in projects if p["status_color"] == "green"),
-        "amber": sum(1 for p in projects if p["status_color"] == "amber"),
-        "red": sum(1 for p in projects if p["status_color"] == "red"),
+        "total_projects": len(scoped_projects),
+        "green": sum(1 for p in scoped_projects if p["status_color"] == "green"),
+        "amber": sum(1 for p in scoped_projects if p["status_color"] == "amber"),
+        "red": sum(1 for p in scoped_projects if p["status_color"] == "red"),
         "open_risks": len(risks),
     }
 
-    # Datos para las graficas de analisis (siempre sobre el set ya filtrado).
+    # Datos para las graficas de analisis (siempre sobre el set ya filtrado,
+    # incluyendo la app seleccionada si hay una).
     status_chart = {
         "labels": ["Verde", "Amarillo", "Rojo", "Desconocido"],
         "data": [
             summary["green"],
             summary["amber"],
             summary["red"],
-            sum(1 for p in projects if p["status_color"] == "unknown"),
+            sum(1 for p in scoped_projects if p["status_color"] == "unknown"),
         ],
     }
     engineer_counts: dict[str, int] = {}
-    for p in projects:
+    for p in scoped_projects:
         name = p.get("engineering") or "Sin asignar"
         engineer_counts[name] = engineer_counts.get(name, 0) + 1
     engineer_chart = {
