@@ -72,23 +72,18 @@ def _dashboard_context(
     engineers = sorted({p["engineering"] for p in all_projects if p.get("engineering")})
     apps = sorted({p["app"] for p in all_projects if p.get("app")})
 
+    # 'app_filter' es una SELECCION (para resaltar), no un filtro que oculte
+    # filas -- asi el usuario siempre puede hacer clic en otra app sin tener
+    # que limpiar nada primero. status/engineer si ocultan filas de verdad.
     projects = all_projects
     if status_filter != "all":
         projects = [p for p in projects if p["status_color"] == status_filter]
     if engineer_filter != "all":
         projects = [p for p in projects if p.get("engineering") == engineer_filter]
-    if app_filter != "all":
-        projects = [p for p in projects if p.get("app") == app_filter]
 
-    # Detalle de la app seleccionada (para el panel de drill-down). Se busca
-    # en TODOS los proyectos -- si el usuario llego aqui haciendo clic en una
-    # fila visible, siempre va a existir.
-    selected_project = None
-    if app_filter != "all":
-        selected_project = next((p for p in all_projects if p["app"] == app_filter), None)
-
-    # Roadmap y riesgos se filtran tambien, para que el drill-down sea
-    # consistente en todo el dashboard (no solo en la tabla de proyectos).
+    # Roadmap y riesgos tambien respetan status/engineer, pero muestran
+    # TODAS las apps que queden dentro de ese alcance (la app seleccionada
+    # se resalta en el template/JS, no se oculta el resto).
     visible_apps = {p["app"] for p in projects}
     roadmap = [dict(r) for r in db.fetch_all("roadmap") if dict(r).get("app") in visible_apps]
     risks = [dict(r) for r in db.fetch_all("risk") if dict(r).get("app") in visible_apps]
@@ -130,7 +125,6 @@ def _dashboard_context(
         "status_filter": status_filter,
         "engineer_filter": engineer_filter,
         "app_filter": app_filter,
-        "selected_project": selected_project,
         "status_chart": status_chart,
         "engineer_chart": engineer_chart,
         "last_synced": db.get_sync_meta("last_synced_at"),

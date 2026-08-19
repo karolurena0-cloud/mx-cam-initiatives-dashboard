@@ -52,9 +52,9 @@
         </select>
     </div>
     <div>
-        <label for="app-filter" class="block text-xs font-medium text-slate-500 mb-1">Ver detalle de app</label>
+        <label for="app-filter" class="block text-xs font-medium text-slate-500 mb-1">Seleccionar app</label>
         <select id="app-filter" name="app" class="text-sm border border-slate-300 rounded-md px-2 py-1.5">
-            <option value="all" {% if app_filter == "all" %}selected{% endif %}>Todas</option>
+            <option value="all" {% if app_filter == "all" %}selected{% endif %}>Ninguna</option>
             {% for a in apps %}
             <option value="{{ a }}" {% if app_filter == a %}selected{% endif %}>{{ a }}</option>
             {% endfor %}
@@ -64,41 +64,6 @@
     <a href="/" class="text-xs font-medium text-blue-600 hover:underline pb-2">Limpiar filtros</a>
     {% endif %}
 </form>
-
-{% if selected_project %}
-<section class="mb-6 bg-white rounded-lg shadow overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 bg-blue-600 text-white">
-        <h2 class="text-lg font-semibold">Detalle: {{ selected_project.app }}</h2>
-        <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}"
-           class="text-xs font-medium underline hover:no-underline">Quitar seleccion</a>
-    </div>
-    <div class="p-4 grid md:grid-cols-2 gap-4">
-        <div>
-            <p class="text-xs text-slate-500">Estado</p>
-            <p class="font-medium inline-flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full
-                    {% if selected_project.status_color == 'green' %}bg-green-500
-                    {% elif selected_project.status_color == 'amber' %}bg-amber-500
-                    {% elif selected_project.status_color == 'red' %}bg-red-500
-                    {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
-                {{ selected_project.overall or "N/D" }} -- {{ selected_project.status or "N/D" }}
-            </p>
-        </div>
-        <div>
-            <p class="text-xs text-slate-500">Producto / Ingenieria / Plataforma</p>
-            <p class="font-medium">{{ selected_project.product }} / {{ selected_project.engineering }} / {{ selected_project.platform }}</p>
-        </div>
-        <div>
-            <p class="text-xs text-slate-500">Project overview</p>
-            <p>{{ selected_project.project_overview or "N/D" }}</p>
-        </div>
-        <div>
-            <p class="text-xs text-slate-500">Dependencias</p>
-            <p>{{ selected_project.dependencies or "Ninguna" }}</p>
-        </div>
-    </div>
-</section>
-{% endif %}
 
 <!-- Tarjetas resumen -->
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -153,15 +118,19 @@
                 <th scope="col" class="px-4 py-2">Producto</th>
                 <th scope="col" class="px-4 py-2">Ingenieria</th>
                 <th scope="col" class="px-4 py-2">Resumen</th>
+                <th scope="col" class="px-4 py-2">Dependencias</th>
                 <th scope="col" class="px-4 py-2">Plataforma</th>
             </tr>
         </thead>
         <tbody class="divide-y">
             {% for p in projects %}
-            <tr class="{% if app_filter == p.app %}bg-blue-50{% endif %}">
+            <tr class="transition-opacity
+                {% if app_filter != "all" and app_filter == p.app %}bg-blue-50 border-l-4 border-blue-600
+                {% elif app_filter != "all" %}opacity-40 grayscale hover:opacity-100 hover:grayscale-0
+                {% endif %}">
                 <td class="px-4 py-2 font-medium">
-                    <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ p.app | urlencode }}"
-                       hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ p.app | urlencode }}"
+                    <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
+                       hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == p.app else p.app) | urlencode }}"
                        hx-target="#dashboard-content" hx-swap="innerHTML"
                        class="text-blue-700 hover:underline">{{ p.app }}</a>
                 </td>
@@ -172,16 +141,17 @@
                             {% elif p.status_color == 'amber' %}bg-amber-500
                             {% elif p.status_color == 'red' %}bg-red-500
                             {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
-                        {{ p.overall or "N/D" }}
+                        {{ p.overall or "N/D" }}{% if p.status %} -- {{ p.status }}{% endif %}
                     </span>
                 </td>
                 <td class="px-4 py-2">{{ p.product }}</td>
                 <td class="px-4 py-2">{{ p.engineering }}</td>
                 <td class="px-4 py-2 max-w-sm truncate" title="{{ p.project_overview }}">{{ p.project_overview }}</td>
+                <td class="px-4 py-2">{{ p.dependencies or "Ninguna" }}</td>
                 <td class="px-4 py-2">{{ p.platform }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
+            <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -211,10 +181,13 @@
             </thead>
             <tbody class="divide-y">
                 {% for r in risks %}
-                <tr class="{% if app_filter == r.app %}bg-blue-50{% endif %}">
+                <tr class="transition-opacity
+                    {% if app_filter != "all" and app_filter == r.app %}bg-blue-50 border-l-4 border-blue-600
+                    {% elif app_filter != "all" %}opacity-40 grayscale hover:opacity-100 hover:grayscale-0
+                    {% endif %}">
                     <td class="px-4 py-2 font-medium">
-                        <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ r.app | urlencode }}"
-                           hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ r.app | urlencode }}"
+                        <a href="/?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == r.app else r.app) | urlencode }}"
+                           hx-get="/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app={{ ("all" if app_filter == r.app else r.app) | urlencode }}"
                            hx-target="#dashboard-content" hx-swap="innerHTML"
                            class="text-blue-700 hover:underline">{{ r.app }}</a>
                     </td>
@@ -294,10 +267,15 @@
         // --- Roadmap, coloreado por % de avance, clickeable para drill-down ---
         const roadmap = readJson("roadmap-data") || [];
         const roadmapCanvas = document.getElementById("roadmapChart");
+        const CURRENT_APP_FILTER = {{ app_filter | tojson_safe }};
         if (roadmapCanvas) {
             destroyIfExists("_roadmapChartInstance");
             const pctOf = r => Number(r.pct) || 0;
-            const colorFor = pct => pct >= 70 ? COLORS.green : pct >= 30 ? COLORS.amber : COLORS.red;
+            const pctColor = pct => pct >= 70 ? COLORS.green : pct >= 30 ? COLORS.amber : COLORS.red;
+            const colorFor = r => {
+                if (CURRENT_APP_FILTER !== "all" && r.app !== CURRENT_APP_FILTER) return COLORS.slate;
+                return pctColor(pctOf(r));
+            };
             window._roadmapChartInstance = new Chart(roadmapCanvas, {
                 type: "bar",
                 data: {
@@ -305,7 +283,7 @@
                     datasets: [{
                         label: "% avance",
                         data: roadmap.map(pctOf),
-                        backgroundColor: roadmap.map(r => colorFor(pctOf(r))),
+                        backgroundColor: roadmap.map(colorFor),
                     }],
                 },
                 options: {
@@ -316,7 +294,8 @@
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const clickedApp = roadmap[elements[0].index].app;
-                        const url = `/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app=${encodeURIComponent(clickedApp)}`;
+                        const nextApp = clickedApp === CURRENT_APP_FILTER ? "all" : clickedApp;
+                        const url = `/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app=${encodeURIComponent(nextApp)}`;
                         htmx.ajax("GET", url, { target: "#dashboard-content", swap: "innerHTML" });
                     },
                     onHover: (evt, elements) => {
