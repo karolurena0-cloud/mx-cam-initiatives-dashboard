@@ -80,7 +80,10 @@ def _dashboard_context(
     if status_filter != "all":
         projects = [p for p in projects if p["status_color"] == status_filter]
     if engineer_filter != "all":
-        projects = [p for p in projects if p.get("engineering") == engineer_filter]
+        projects = [
+            p for p in projects
+            if (p.get("engineering") or "Sin asignar") == engineer_filter
+        ]
 
     # 'scoped_projects' alimenta TODO LO DEMAS (tarjetas resumen, graficas,
     # roadmap, riesgos) -- aqui si se aplica un drill-down real: si hay una

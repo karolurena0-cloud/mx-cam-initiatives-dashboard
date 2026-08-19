@@ -240,6 +240,25 @@
             if (window[key]) { window[key].destroy(); window[key] = null; }
         }
 
+        // Filtros actuales, para saber que clic hace "toggle" (deseleccionar)
+        // y para armar la URL que se le pide a HTMX en cualquiera de los 3
+        // graficos clickeables (dona, ingenieros, roadmap).
+        const CURRENT_STATUS_FILTER = {{ status_filter | tojson_safe }};
+        const CURRENT_ENGINEER_FILTER = {{ engineer_filter | tojson_safe }};
+        const CURRENT_APP_FILTER = {{ app_filter | tojson_safe }};
+
+        function navigateWithFilters(next) {
+            const status = next.status !== undefined ? next.status : CURRENT_STATUS_FILTER;
+            const engineer = next.engineer !== undefined ? next.engineer : CURRENT_ENGINEER_FILTER;
+            const app = next.app !== undefined ? next.app : CURRENT_APP_FILTER;
+            const url = `/partials/content?status=${encodeURIComponent(status)}&engineer=${encodeURIComponent(engineer)}&app=${encodeURIComponent(app)}`;
+            htmx.ajax("GET", url, { target: "#dashboard-content", swap: "innerHTML" });
+        }
+
+        function pointerCursor(evt, elements) {
+            evt.native.target.style.cursor = elements.length ? "pointer" : "default";
+        }
+
         // --- Dona de estados ---
         const statusData = readJson("status-data");
         const statusCanvas = document.getElementById("statusChart");
@@ -264,6 +283,14 @@
                             formatter: (value) => value > 0 ? value : "",
                         },
                     },
+                    onClick: (evt, elements) => {
+                        if (!elements.length) return;
+                        const statusKeys = ["green", "amber", "red", "unknown"];
+                        const clickedStatus = statusKeys[elements[0].index];
+                        const nextStatus = clickedStatus === CURRENT_STATUS_FILTER ? "all" : clickedStatus;
+                        navigateWithFilters({ status: nextStatus });
+                    },
+                    onHover: pointerCursor,
                 },
                 plugins: [ChartDataLabels],
             });
@@ -299,6 +326,13 @@
                             font: { weight: "bold" },
                         },
                     },
+                    onClick: (evt, elements) => {
+                        if (!elements.length) return;
+                        const clickedEngineer = engineerData.labels[elements[0].index];
+                        const nextEngineer = clickedEngineer === CURRENT_ENGINEER_FILTER ? "all" : clickedEngineer;
+                        navigateWithFilters({ engineer: nextEngineer });
+                    },
+                    onHover: pointerCursor,
                 },
                 plugins: [ChartDataLabels],
             });
@@ -309,7 +343,6 @@
         // trae las tareas de la app seleccionada, o todas si no hay ninguna)
         const roadmap = readJson("roadmap-data") || [];
         const roadmapCanvas = document.getElementById("roadmapChart");
-        const CURRENT_APP_FILTER = {{ app_filter | tojson_safe }};
         if (roadmapCanvas) {
             destroyIfExists("_roadmapChartInstance");
             const pctOf = r => Number(r.pct) || 0;
@@ -347,12 +380,9 @@
                         if (!elements.length) return;
                         const clickedApp = roadmap[elements[0].index].app;
                         const nextApp = clickedApp === CURRENT_APP_FILTER ? "all" : clickedApp;
-                        const url = `/partials/content?status={{ status_filter | urlencode }}&engineer={{ engineer_filter | urlencode }}&app=${encodeURIComponent(nextApp)}`;
-                        htmx.ajax("GET", url, { target: "#dashboard-content", swap: "innerHTML" });
+                        navigateWithFilters({ app: nextApp });
                     },
-                    onHover: (evt, elements) => {
-                        evt.native.target.style.cursor = elements.length ? "pointer" : "default";
-                    },
+                    onHover: pointerCursor,
                 },
                 plugins: [ChartDataLabels],
             });
