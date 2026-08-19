@@ -155,13 +155,13 @@
 <p class="text-xs text-slate-400 -mt-4 mb-6 px-1">Haz clic en el nombre de una app para ver su estado y dependencias en detalle abajo.</p>
 
 <div class="grid md:grid-cols-2 gap-6 mb-6">
+    {% if selected_project %}
     <!-- Estado y Dependencias de la app seleccionada -->
     <section class="bg-white rounded-lg shadow p-4">
         <h2 class="text-lg font-semibold mb-3">
             Estado y Dependencias
-       {% if selected_project %}<span class="text-sm font-normal text-slate-500">-- {{ selected_project.app }}</span>{% endif %}
+            <span class="text-sm font-normal text-slate-500">-- {{ selected_project.app }}</span>
         </h2>
-        {% if selected_project %}
         <div class="grid grid-cols-2 gap-3">
             <div class="border border-slate-200 rounded-md p-3">
                 <p class="text-xs font-medium text-slate-500 mb-1">Estado</p>
@@ -180,13 +180,11 @@
                 <p class="text-sm text-slate-700">{{ selected_project.dependencies or "Ninguna" }}</p>
             </div>
         </div>
-        {% else %}
-        <p class="text-sm text-slate-400 italic">Selecciona una app en la tabla de Proyectos (o en el dropdown de filtros) para ver su estado y dependencias en detalle.</p>
-        {% endif %}
     </section>
+    {% endif %}
 
     <!-- Riesgos -->
-    <section class="bg-white rounded-lg shadow overflow-x-auto">
+    <section class="bg-white rounded-lg shadow overflow-x-auto {% if not selected_project %}md:col-span-2{% endif %}">
         <h2 class="text-lg font-semibold px-4 py-3 rounded-t-lg text-white bg-red-600">Riesgos</h2>
         <table class="min-w-full text-sm">
             <thead class="text-left text-slate-500 border-b">
