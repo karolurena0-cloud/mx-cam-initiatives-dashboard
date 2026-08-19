@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MX/CAM Initiatives App Portfolio Dashboard", lifespan=lifespan)
+app = FastAPI(title="Panel de Portafolio de Apps -- MX/CAM Initiatives", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
