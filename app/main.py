@@ -60,21 +60,32 @@ def _dashboard_context(
     upload_ok: bool = True,
     status_filter: str = "all",
     engineer_filter: str = "all",
+    app_filter: str = "all",
 ) -> dict:
     all_projects = [dict(r) for r in db.fetch_all("projects")]
     for p in all_projects:
         p["status_color"] = _status_bucket(p.get("overall", ""))
 
-    # Lista de ingenieros conocidos para el dropdown -- siempre a partir de
-    # TODOS los proyectos (no de los ya filtrados), para no hacer
-    # desaparecer opciones del filtro cuando otro filtro ya esta activo.
+    # Listas para los dropdowns -- siempre a partir de TODOS los proyectos
+    # (no de los ya filtrados), para no hacer desaparecer opciones del
+    # filtro cuando otro filtro ya esta activo.
     engineers = sorted({p["engineering"] for p in all_projects if p.get("engineering")})
+    apps = sorted({p["app"] for p in all_projects if p.get("app")})
 
     projects = all_projects
     if status_filter != "all":
         projects = [p for p in projects if p["status_color"] == status_filter]
     if engineer_filter != "all":
         projects = [p for p in projects if p.get("engineering") == engineer_filter]
+    if app_filter != "all":
+        projects = [p for p in projects if p.get("app") == app_filter]
+
+    # Detalle de la app seleccionada (para el panel de drill-down). Se busca
+    # en TODOS los proyectos -- si el usuario llego aqui haciendo clic en una
+    # fila visible, siempre va a existir.
+    selected_project = None
+    if app_filter != "all":
+        selected_project = next((p for p in all_projects if p["app"] == app_filter), None)
 
     # Roadmap y riesgos se filtran tambien, para que el drill-down sea
     # consistente en todo el dashboard (no solo en la tabla de proyectos).
@@ -115,8 +126,11 @@ def _dashboard_context(
         "risks": risks,
         "summary": summary,
         "engineers": engineers,
+        "apps": apps,
         "status_filter": status_filter,
         "engineer_filter": engineer_filter,
+        "app_filter": app_filter,
+        "selected_project": selected_project,
         "status_chart": status_chart,
         "engineer_chart": engineer_chart,
         "last_synced": db.get_sync_meta("last_synced_at"),
@@ -128,15 +142,15 @@ def _dashboard_context(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, status: str = "all", engineer: str = "all"):
-    ctx = _dashboard_context(status_filter=status, engineer_filter=engineer)
+async def dashboard(request: Request, status: str = "all", engineer: str = "all", app: str = "all"):
+    ctx = _dashboard_context(status_filter=status, engineer_filter=engineer, app_filter=app)
     return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
 @app.get("/partials/content", response_class=HTMLResponse)
-async def dashboard_content(request: Request, status: str = "all", engineer: str = "all"):
-    """Partial que HTMX vuelve a pedir cada 30s (o al cambiar un filtro) para refrescar la vista."""
-    ctx = _dashboard_context(status_filter=status, engineer_filter=engineer)
+async def dashboard_content(request: Request, status: str = "all", engineer: str = "all", app: str = "all"):
+    """Partial que HTMX vuelve a pedir cada 30s (o al cambiar/hacer clic en un filtro) para refrescar la vista."""
+    ctx = _dashboard_context(status_filter=status, engineer_filter=engineer, app_filter=app)
     return templates.TemplateResponse(request, "partials/content.html", ctx)
 
 
@@ -146,6 +160,7 @@ async def upload_excel(
     file: UploadFile = File(...),
     status: str = Form("all"),
     engineer: str = Form("all"),
+    app: str = Form("all"),
 ):
     """Recibe el .xlsx subido desde la UI, lo parsea y actualiza la cache SQLite.
 
@@ -155,7 +170,7 @@ async def upload_excel(
     if not file.filename.lower().endswith(".xlsx"):
         ctx = _dashboard_context(
             upload_message="El archivo debe ser .xlsx", upload_ok=False,
-            status_filter=status, engineer_filter=engineer,
+            status_filter=status, engineer_filter=engineer, app_filter=app,
         )
         return templates.TemplateResponse(request, "partials/content.html", ctx)
 
@@ -163,7 +178,7 @@ async def upload_excel(
     if len(raw) > settings.max_upload_bytes:
         ctx = _dashboard_context(
             upload_message=f"El archivo pesa mas de {settings.max_upload_bytes // (1024*1024)}MB",
-            upload_ok=False, status_filter=status, engineer_filter=engineer,
+            upload_ok=False, status_filter=status, engineer_filter=engineer, app_filter=app,
         )
         return templates.TemplateResponse(request, "partials/content.html", ctx)
 
@@ -176,17 +191,19 @@ async def upload_excel(
                 "SharePoint en vez de la mas reciente."
             )
             ctx = _dashboard_context(
-                upload_message=msg, upload_ok=False, status_filter=status, engineer_filter=engineer,
+                upload_message=msg, upload_ok=False,
+                status_filter=status, engineer_filter=engineer, app_filter=app,
             )
         else:
             ctx = _dashboard_context(
                 upload_message="El dashboard se actualizo con exito.", upload_ok=True,
-                status_filter=status, engineer_filter=engineer,
+                status_filter=status, engineer_filter=engineer, app_filter=app,
             )
     except ExcelImportError as exc:
         logger.warning("Import fallido: %s", exc)
         ctx = _dashboard_context(
-            upload_message=str(exc), upload_ok=False, status_filter=status, engineer_filter=engineer,
+            upload_message=str(exc), upload_ok=False,
+            status_filter=status, engineer_filter=engineer, app_filter=app,
         )
 
     return templates.TemplateResponse(request, "partials/content.html", ctx)
