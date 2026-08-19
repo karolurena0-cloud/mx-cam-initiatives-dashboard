@@ -340,10 +340,14 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { min: 0, max: 100, grid: { display: false } },
+                        x: {
+                            min: 0,
+                            max: 118,
+                            grid: { display: false },
+                            ticks: { callback: (value) => value <= 100 ? value + "%" : "" },
+                        },
                         y: { grid: { display: false } },
                     },
-                    layout: { padding: { right: 34 } },
                     plugins: {
                         datalabels: {
                             anchor: "end",

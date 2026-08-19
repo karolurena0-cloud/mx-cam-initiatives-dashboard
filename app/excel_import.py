@@ -8,6 +8,7 @@ cambios en su siguiente refresco automatico (ver hx-trigger en el template).
 import hashlib
 import io
 import logging
+from datetime import date, datetime
 
 import openpyxl
 
@@ -36,6 +37,18 @@ HEADER_ALIASES = {
 
 def _normalize_header(cell) -> str:
     return str(cell or "").strip().lower().replace(" ", "_")
+
+
+def _clean_cell(value):
+    """Excel guarda fechas como datetime (con hora, aunque sea 00:00:00) --
+    a nadie en el dashboard le importa la hora, asi que aqui se recorta a
+    solo la fecha (YYYY-MM-DD) para las 3 hojas por igual.
+    """
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
 
 
 def _known_headers_for(table: str) -> set[str]:
@@ -89,7 +102,7 @@ def _rows_from_values(values: list[list], table: str) -> list[dict]:
 
     rows = []
     for raw_row in values[header_idx + 1:]:
-        row = {name: (raw_row[col_idx] if col_idx < len(raw_row) else "") for col_idx, name in col_map.items()}
+        row = {name: (_clean_cell(raw_row[col_idx]) if col_idx < len(raw_row) else "") for col_idx, name in col_map.items()}
         # Saltar filas totalmente vacias (comunes al final de un rango en Excel).
         if any(str(v).strip() for v in row.values() if v is not None):
             rows.append(row)
