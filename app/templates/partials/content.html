@@ -287,7 +287,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { display: false } },
+                    },
                     plugins: {
                         datalabels: {
                             anchor: "end",
@@ -326,6 +329,16 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: { x: { min: 0, max: 100 } },
+                    plugins: {
+                        datalabels: {
+                            anchor: "end",
+                            align: "end",
+                            clamp: true,
+                            color: "#334155",
+                            font: { weight: "bold" },
+                            formatter: (value) => Math.round(value) + "%",
+                        },
+                    },
                     onClick: (evt, elements) => {
                         if (!elements.length) return;
                         const clickedApp = roadmap[elements[0].index].app;
@@ -337,6 +350,7 @@
                         evt.native.target.style.cursor = elements.length ? "pointer" : "default";
                     },
                 },
+                plugins: [ChartDataLabels],
             });
         }
     })();
