@@ -328,12 +328,16 @@
                     indexAxis: "y",
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { x: { min: 0, max: 100 } },
+                    scales: {
+                        x: { min: 0, max: 100, grid: { display: false } },
+                        y: { grid: { display: false } },
+                    },
+                    layout: { padding: { right: 34 } },
                     plugins: {
                         datalabels: {
                             anchor: "end",
                             align: "end",
-                            clamp: true,
+                            clip: false,
                             color: "#334155",
                             font: { weight: "bold" },
                             formatter: (value) => Math.round(value) + "%",
