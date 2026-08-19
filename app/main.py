@@ -96,13 +96,6 @@ def _dashboard_context(
     roadmap = [dict(r) for r in db.fetch_all("roadmap") if dict(r).get("app") in visible_apps]
     risks = [dict(r) for r in db.fetch_all("risk") if dict(r).get("app") in visible_apps]
 
-    # Detalle de la app seleccionada -- se muestra en la seccion Estado/
-    # Dependencias (texto largo que no cabe bien en la tabla). Se busca en
-    # TODOS los proyectos, no solo en los ya filtrados por status/engineer.
-    selected_project = None
-    if app_filter != "all":
-        selected_project = next((p for p in all_projects if p["app"] == app_filter), None)
-
     summary = {
         "total_projects": len(scoped_projects),
         "green": sum(1 for p in scoped_projects if p["status_color"] == "green"),
@@ -141,7 +134,6 @@ def _dashboard_context(
         "status_filter": status_filter,
         "engineer_filter": engineer_filter,
         "app_filter": app_filter,
-        "selected_project": selected_project,
         "status_chart": status_chart,
         "engineer_chart": engineer_chart,
         "last_synced": db.get_sync_meta("last_synced_at"),
