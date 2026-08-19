@@ -117,8 +117,6 @@
                 <th scope="col" class="px-4 py-2">Estado</th>
                 <th scope="col" class="px-4 py-2">Producto</th>
                 <th scope="col" class="px-4 py-2">Ingenieria</th>
-                <th scope="col" class="px-4 py-2">Resumen</th>
-                <th scope="col" class="px-4 py-2">Dependencias</th>
                 <th scope="col" class="px-4 py-2">Plataforma</th>
             </tr>
         </thead>
@@ -141,30 +139,50 @@
                             {% elif p.status_color == 'amber' %}bg-amber-500
                             {% elif p.status_color == 'red' %}bg-red-500
                             {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
-                        {{ p.overall or "N/D" }}{% if p.status %} -- {{ p.status }}{% endif %}
+                        {{ p.overall or "N/D" }}
                     </span>
                 </td>
                 <td class="px-4 py-2">{{ p.product }}</td>
                 <td class="px-4 py-2">{{ p.engineering }}</td>
-                <td class="px-4 py-2 max-w-sm truncate" title="{{ p.project_overview }}">{{ p.project_overview }}</td>
-                <td class="px-4 py-2">{{ p.dependencies or "Ninguna" }}</td>
                 <td class="px-4 py-2">{{ p.platform }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="7" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
+            <tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Sin proyectos que coincidan con los filtros</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </section>
+<p class="text-xs text-slate-400 -mt-4 mb-6 px-1">Haz clic en el nombre de una app para ver su estado y dependencias en detalle abajo.</p>
 
-<div class="grid md:grid-cols-2 gap-6">
-    <!-- Roadmap -->
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+    <!-- Estado y Dependencias de la app seleccionada -->
     <section class="bg-white rounded-lg shadow p-4">
-        <h2 class="text-lg font-semibold mb-2">Roadmap (% avance)</h2>
-        <div class="h-80">
-            <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap, coloreadas por nivel de riesgo"></canvas>
+        <h2 class="text-lg font-semibold mb-3">
+            Estado y Dependencias
+       {% if selected_project %}<span class="text-sm font-normal text-slate-500">-- {{ selected_project.app }}</span>{% endif %}
+        </h2>
+        {% if selected_project %}
+        <div class="grid grid-cols-2 gap-3">
+            <div class="border border-slate-200 rounded-md p-3">
+                <p class="text-xs font-medium text-slate-500 mb-1">Estado</p>
+                <p class="inline-flex items-center gap-1.5 font-medium mb-1">
+                    <span class="w-2.5 h-2.5 rounded-full
+                        {% if selected_project.status_color == 'green' %}bg-green-500
+                        {% elif selected_project.status_color == 'amber' %}bg-amber-500
+                        {% elif selected_project.status_color == 'red' %}bg-red-500
+                        {% else %}bg-slate-300{% endif %}" aria-hidden="true"></span>
+                    {{ selected_project.overall or "N/D" }}
+                </p>
+                <p class="text-sm text-slate-700">{{ selected_project.status or "Sin detalle de status" }}</p>
+            </div>
+            <div class="border border-slate-200 rounded-md p-3">
+                <p class="text-xs font-medium text-slate-500 mb-1">Dependencias</p>
+                <p class="text-sm text-slate-700">{{ selected_project.dependencies or "Ninguna" }}</p>
+            </div>
         </div>
-        <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
+        {% else %}
+        <p class="text-sm text-slate-400 italic">Selecciona una app en la tabla de Proyectos (o en el dropdown de filtros) para ver su estado y dependencias en detalle.</p>
+        {% endif %}
     </section>
 
     <!-- Riesgos -->
@@ -202,6 +220,15 @@
         </table>
     </section>
 </div>
+
+<!-- Roadmap -->
+<section class="bg-white rounded-lg shadow p-4">
+    <h2 class="text-lg font-semibold mb-2">Roadmap (% avance)</h2>
+    <div class="h-96">
+        <canvas id="roadmapChart" role="img" aria-label="Barras de porcentaje de avance por tarea de roadmap, coloreadas por nivel de riesgo"></canvas>
+    </div>
+    <script id="roadmap-data" type="application/json">{{ roadmap | tojson_safe }}</script>
+</section>
 
 <script>
     (function renderCharts() {
